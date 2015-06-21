@@ -12,6 +12,14 @@ if (getNearest === 'true') {
   getNearest = false;
 }
 
+//--------Translation Var
+var translate = localStorage.getItem('translate'); //Ignore stationID and fetch data for nearest
+if (translate === 'true') {
+  translate = true;
+} else {
+  translate = false;
+}
+
 //--------Station Var
 var stationID = localStorage.getItem('stationID'); //The station to fetch data for
 if ((stationID === null)||(stationID.length != 4)) { stationID = ''; }
@@ -47,8 +55,6 @@ var API_URL_ROOT = 'https://timeline-api.getpebble.com/';
 function timelineRequest(pin, type, callback) {
   // User or shared?
   var url = API_URL_ROOT + 'v1/user/pins/' + pin.id;
-  console.log('API URL: ' + url);
-
   // Create XHR
   var xhr = new XMLHttpRequest();
   xhr.onload = function () {
@@ -99,6 +105,9 @@ function setIssueDate(issue) {
   while (issueDate.getUTCDate() > day) { issueDate.setUTCDate(issueDate.getUTCDate()-1); }
   var hour = parseInt(issue.substring(2,4));
   issueDate.setUTCHours(hour);
+  issueDate.setUTCMinutes(0);
+  issueDate.setUTCSeconds(0);
+  issueDate.setUTCMilliseconds(0);
   console.log('Issue String: ' + issue);
   console.log('Issue DateTm: ' + issueDate.toString());
 }
@@ -116,27 +125,21 @@ function createDateTime(time) {
   date.setUTCSeconds(0);
   date.setUTCMilliseconds(0);
   //console.log('Time String: ' + time);
-  console.log('Time DateTm: ' + date.toString());
+  //console.log('Time DateTm: ' + date.toString());
   return date;
 }
 
 //Creates the 'body' string from the elements of a forecast's dictionary
 //@param wxDict The forecast dictionary
 function formatBodyString(wxDict) {
-  //console.log(JSON.stringify(wxDict));
   var ret = wxDict['Raw-Line'];
   if (wxDict.Probability !== '') { ret = ret.substring(ret.indexOf(' ')+1); }
-  //console.log(ret);
   ret = ret.substring(ret.indexOf(' ')+1);
-  //console.log(ret);
   ret = wxDict['Start-Time'] + '/' + wxDict['End-Time'] + ' ' + ret;
-  //console.log(wxDict.Type);
   if (['TEMPO','BECMG','INTER'].indexOf(wxDict.Type) >= 0) {
-    //console.log('Found special');
     ret = ret.substring(ret.indexOf(' ')+1);
     if (wxDict.Type == 'TEMPO') { ret = 'TEMPO ' + ret; }
   }
-  //console.log(ret);
   return ret;
 }
 
@@ -162,6 +165,12 @@ var frUIElements = {
 //@param station The reporting station
 function createPin(wxDict, pinID, station) {
   var startDT = createDateTime(wxDict['Start-Time']);
+  var bodyString = '';
+  if (translate) {
+    bodyString = wxDict.Summary;
+  } else {
+    bodyString = formatBodyString(wxDict);
+  }
   var pin = {
     'id': pinID,
     'time': startDT,
@@ -171,7 +180,7 @@ function createPin(wxDict, pinID, station) {
       'type': 'genericPin',
       'title': 'TAF-'+station,
       'subtitle': 'Forecast: '+wxDict['Flight-Rules'],
-      'body': formatBodyString(wxDict),
+      'body': bodyString,
       'foregroundColor': '#FFFFFF',
       'backgroundColor': frUIElements[wxDict['Flight-Rules']][0],
       'tinyIcon': frUIElements[wxDict['Flight-Rules']][1]
@@ -210,7 +219,6 @@ function addNotification(pin, station, issued) {
 function handleRequest(resp) {
   console.log('##### Begin Main Handling #####');
   if ('Error' in resp) { exitApp('Error Fetch'); }
-  else if (resp.Time === '') { exitApp('Error Time'); }
   else {
     avwxResp = resp;
     /* Delete old Pins */
@@ -239,14 +247,16 @@ function deleteOldPins() {
 //Creates pinIDRoot, builds pinList, and saves lastID values
 //Calls insertNewPins when finished
 function buildNewPins() {
-  /* Build new Pins */
   pinList = [];
-  var pinID = 'AVWX-TAF-'+avwxResp.Station+'-'+avwxResp.Time+'-';
-  setIssueDate(avwxResp.Time);
+  var reportTime = avwxResp.Time;
+  if (reportTime === '') { reportTime = avwxResp.Forecast[0]['Start-Time'] + '00Z'; }
+  setIssueDate(reportTime);
+  var pinID = 'AVWX-TAF-'+avwxResp.Station+'-'+reportTime+'-';
+  /* Build new Pins */
   for (var i=0; i<avwxResp.Forecast.length; i++) {
     if (avwxResp.Forecast[i]['Start-Time'] !== '') { pinList.push(createPin(avwxResp.Forecast[i], pinID+i.toString(), avwxResp.Station)); }
   }
-  pinList[0] = addNotification(pinList[0], avwxResp.Station, avwxResp.Time);
+  pinList[0] = addNotification(pinList[0], avwxResp.Station, reportTime);
   localStorage.setItem('lastIDRoot', pinID);
   localStorage.setItem('lastIDNum', (i-1).toString());
   /* Send new Pins */
@@ -291,7 +301,6 @@ var updateReport = function(url) {
     var resp = JSON.parse(request.responseText);
     handleRequest(resp);
   };
-  
   console.log('Now Fetching: ' + url);
   request.open('GET', url, true);
   request.send();
@@ -343,6 +352,7 @@ Pebble.addEventListener('ready',
       useGeoURL();
     } else if (stationID !== '') {
       var url = 'http://avwx.rest/api/taf.php?station=' + stationID + '&format=JSON';
+      if (translate) { url += '&options=summary'; }
       updateReport(url);
     } else {
       exitApp('Go to Settings');
@@ -357,7 +367,7 @@ Pebble.addEventListener('showConfiguration', function(e) {
   localStorage.setItem('getNearest', 'false');
   //Show config page
   console.log('Now showing config page');
-  Pebble.openURL('http://mdupont.com/Pebble-Config/pebble-tafline-setup.html');
+  Pebble.openURL('http://mdupont.com/Pebble-Config/pebble-tafline-setup-1-1.html');
 });
 
 //Listen for when user closes config page
@@ -370,6 +380,7 @@ Pebble.addEventListener('webviewclosed',
       console.log('Options = ' + JSON.stringify(options));
       if (options.stationID !== '') { localStorage.setItem('stationID', options.stationID); }
       localStorage.setItem('getNearest', options.getNearest);
+      localStorage.setItem('translate', options.translate);
     }
   }
 );
