@@ -167,7 +167,7 @@ function createPin(wxDict, pinID, station) {
   var startDT = createDateTime(wxDict['Start-Time']);
   var bodyString = '';
   if (translate) {
-    bodyString = wxDict.Summary;
+    bodyString = wxDict['Start-Time'] + '/' + wxDict['End-Time'] + ' ' + wxDict.Summary;
   } else {
     bodyString = formatBodyString(wxDict);
   }
@@ -314,6 +314,7 @@ function locationSuccess(pos) {
   console.log('Latitude = ' + latitude.toString());
   console.log('Longitude = ' + longitude.toString());
   var url = 'http://avwx.rest/api/taf.php?lat=' + latitude.toString() + '&lon=' + longitude.toString() + '&format=JSON';
+  if (translate) { url += '&options=summary'; }
   console.log(url);
   updateReport(url);
 }
@@ -373,7 +374,6 @@ Pebble.addEventListener('showConfiguration', function(e) {
 //Listen for when user closes config page
 Pebble.addEventListener('webviewclosed',
   function(e) {
-    console.log(e.response.length);
     console.log('Configuration window returned: ' + e.response);
     if (e.response.length !== 0) {
       var options = JSON.parse(decodeURIComponent(e.response));
