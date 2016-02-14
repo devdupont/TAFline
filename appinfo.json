@@ -7,6 +7,7 @@
         "configurable"
     ],
     "companyName": "flyinactor91@gmail.com",
+    "enableMultiJS": false,
     "longName": "TAFline",
     "projectType": "native",
     "resources": {
@@ -15,17 +16,19 @@
                 "file": "images/AppIconBW.png",
                 "menuIcon": true,
                 "name": "APP_ICON",
-                "type": "png"
+                "type": "bitmap"
             }
         ]
     },
     "sdkVersion": "3",
     "shortName": "TAFline",
     "targetPlatforms": [
-        "basalt"
+        "aplite",
+        "basalt",
+        "chalk"
     ],
     "uuid": "0fec59b1-2e40-4871-84fd-27325a11525d",
-    "versionLabel": "1.1",
+    "versionLabel": "1.3",
     "watchapp": {
         "watchface": false
     }

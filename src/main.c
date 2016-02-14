@@ -64,13 +64,21 @@ void init(void) {
   #ifdef PBL_COLOR
   window_set_background_color(s_main_window, GColorPictonBlue);
   #else
-  window_set_background_color(s_main_window, GColorBlack);
+  window_set_background_color(s_main_window, GColorWhite);
   #endif
   
   // Create text layer
+  #if defined(PBL_RECT)
   s_text_layer = text_layer_create(GRect(0, 63, 144, 35));
+  #elif defined(PBL_ROUND)
+  s_text_layer = text_layer_create(GRect(0, 70, 180, 35));
+  #endif
   text_layer_set_background_color(s_text_layer, GColorClear);
+  #ifdef PBL_COLOR
   text_layer_set_text_color(s_text_layer, GColorWhite);
+  #else
+  text_layer_set_text_color(s_text_layer, GColorBlack);
+  #endif
   text_layer_set_text_alignment(s_text_layer, GTextAlignmentCenter);
   text_layer_set_font(s_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28));
   text_layer_set_text(s_text_layer, "Connecting");
@@ -86,7 +94,7 @@ void init(void) {
   app_message_register_outbox_sent(outbox_sent_callback);
   
   // Open AppMessage
-  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  app_message_open(200, 0);
 }
 
 void deinit(void) {
